@@ -50,18 +50,29 @@
 ]).
 
 
-%% 启动mysql
+%% @spec start() -> ok
+%% @doc 启动mysql
 start() ->
-	?ok = application:start(mysql),
-	?ok.
+	application:start(mysql),
+	ok.
 
-%% 停止mysql
+%% @spec stop() -> ok
+%% @doc 停止mysql
 stop() ->
-	?ok = application:stop(mysql),
-	?ok.
+	application:stop(mysql),
+	ok.
 
 
-%% 添加数据库池
+%% @spec add_pool(PoolId, Host, Port, Username, Password, Database, Charset, Num) -> ok
+%% PoolId = integer()
+%% Host = string()
+%% Port = integer()
+%% Username = string()
+%% Password = string()
+%% Database = string()
+%% Charset = atom()
+%% Num = integer()
+%% @doc 添加数据库池
 add_pool(PoolId, Username, Password, Database) ->
 	add_pool(PoolId, "127.0.0.1", 3306, Username, Password, Database, utf8, ?MYSQL_CONNECT_NUM).
 add_pool(PoolId, Username, Password, Database, Num) ->
@@ -80,14 +91,20 @@ add_pool(PoolId, Host, Port, Username, Password, Database, Charset, Num) ->
 	mysql_srv:add_pool(PoolId, MysqlSide).
 
 
-%% 执行mysql语句(同步)
+%% @spec fetch(PoolId, Query, Args) -> {ok, Result} | {error, Error}
+%% PoolId = atom()
+%% Query = string() | bitstring()
+%% Args = list()
+%% @doc 执行mysql语句(同步)
 fetch(PoolId, Query) ->
 	Pid	= self(),
 	Ref	= make_ref(),
 	mysql_srv:fetch(PoolId, Pid, Ref, Query),
 	receive
 		{?ok, Ref, Result} ->
-			{?ok, Result}
+			{?ok, Result};
+		{error, Ref, Error} ->
+			{error, Error}
 	after ?MYSQL_TIMEOUT_RUN * 1000 ->
 		{?error, timeout}
 	end.
@@ -95,22 +112,32 @@ fetch(PoolId, QueryTmp, Args) ->
 	Query = format(QueryTmp, Args),
 	fetch(PoolId, Query).
 
-%% 执行mysql语句(异步)
+%% @spec fetch_cast(PoolId, Query, Args) -> ok
+%% PoolId = atom()
+%% Query = string() | bitstring()
+%% Args = list()
+%% @doc 执行mysql语句(异步)
 fetch_cast(PoolId, Query) ->
 	Pid	= ?null,
 	Ref	= make_ref(),
 	mysql_srv:fetch(PoolId, Pid, Ref, Query),
-	?ok.
+	ok.
 fetch_cast(PoolId, QueryTmp, Args) ->
 	Query = format(QueryTmp, Args),
 	fetch_cast(PoolId, Query).
 
-%% 执行SQL返回影响行数(insert,update)
+%% @spec execute(PoolId, Query, Args) -> {ok, AffectedRows} | {error, Error}
+%% PoolId = atom()
+%% Query = string() | bitstring()
+%% Args = list()
+%% AffectedRows = integer()
+%% Error = term()
+%% @doc 执行SQL返回影响行数(insert,update)
 execute(PoolId, Query) ->
 	case mysql:fetch(PoolId, Query) of
-		{?ok, #mysql_result{affectedrows=AffectedRows,error=""}} ->
+		{?ok, #mysql_result{affectedrows = AffectedRows, error = ""}} ->
 			{?ok, AffectedRows};
-		{?ok, #mysql_result{error=Error}} ->
+		{?ok, #mysql_result{error = Error}} ->
 			{?error, Error};
 		{?error, Error} ->
 			{?error, Error}
@@ -120,16 +147,36 @@ execute(PoolId, QueryTmp, Args) ->
 	execute(PoolId, Query).
 
 
+%% @spec insert(PoolId, Table, Datas) -> {ok, AffectedRows, LastInsertId} | {error, Error}
+%% PoolId = atom()
+%% Table = term()
+%% Datas = list()
+%% AffectedRows = integer()
+%% LastInsertId = integer()
+%% Error = term()
+%% @doc 插入数据
 %% mysql_api:insert(db_logic, gchy_mail, [{type,1},{send_uid,1}]).
-%% mysql_api:insert(db_logic, gchy_mail, [ [{type,1},{send_uid,1}], [{type,2},{send_uid,2}] ]).
 insert(PoolId, Table, Datas) ->
 	SQL = insert_encode(Table, Datas),
 	insert_execute(PoolId, SQL).
 
+%% @spec insert(PoolId, Table, Datas) -> ok
+%% PoolId = atom()
+%% Table = term()
+%% Datas = list()
+%% @doc 插入数据(异步)
 insert_cast(PoolId, Table, Datas) ->
 	Sql = insert_encode(Table, Datas),
 	mysql:fetch_cast(PoolId, Sql).
 
+%% @spec delete(PoolId, Table, Where, Args) -> {ok, AffectedRows} | {error, Error}
+%% PoolId = atom()
+%% Table = term()
+%% Where = string() | bitstring()
+%% Args = list()
+%% AffectedRows = integer()
+%% Error = term()
+%% @doc 删除表数据
 %% mysql_api:delete(db_logic, gchy_mail).
 %% mysql_api:delete(db_logic, gchy_mail, "`id`=~s AND `age`=~s", [10,20]).
 delete(PoolId, Table) ->
@@ -138,20 +185,39 @@ delete(PoolId, Table, Where, Args) ->
 	SQL = "DELETE FROM `" ++ mysql_util:to_list(Table) ++ "`" ++ ?IF(Where =:= "", ";", " WHERE " ++ Where),
 	update_execute(PoolId, format(SQL, Args)).
 
+%% @spec delete(PoolId, Table, Where, Args) -> ok
+%% PoolId = atom()
+%% Table = term()
+%% Where = string() | bitstring()
+%% Args = list()
+%% AffectedRows = integer()
+%% Error = term()
+%% @doc 删除表数据
 delete_cast(PoolId, Table)->
 	delete_cast(PoolId, Table, "", []).
 delete_cast(PoolId, Table, Where, Args) ->
 	SQL = "DELETE FROM `" ++ mysql_util:to_list(Table) ++ "`" ++ ?IF(Where =:= "", ";", " WHERE " ++ Where),
 	mysql:fetch_cast(PoolId, format(SQL, Args)).
 
-%% mysql_api:select(db_logic, "SELECT * FROM `table`").
-%% mysql_api:select(db_logic, [mail_id,title], gchy_mail).
-%% mysql_api:select(db_logic, [mail_id,title], gchy_mail, [{mail_id,222},{date,111}]).
-%% mysql_api:select(db_logic, [mail_id,title], gchy_mail, [{mail_id,222},{date,111}], {gold,asc}, 30).
+%% @spec select(PoolId, Query, Args) -> {ok, Rows} | {error, Error}
+%% PoolId = atom()
+%% Query = string() | bitstring()
+%% Args = list()
+%% Rows = [list()|_]
+%% Error = term()
+%% @doc 查询数据
 select(PoolId, SQL) ->
 	select_execute(PoolId, SQL).
 select(PoolId, SQL, Args) ->
 	select_execute(PoolId, format(SQL, Args)).
+
+%% @spec select_row(PoolId, Query, Args) -> {ok, Row} | null | {error, Error}
+%% PoolId = atom()
+%% Query = string() | bitstring()
+%% Args = list()
+%% Row = list()
+%% Error = term()
+%% @doc 查询数据(一行)
 select_row(PoolId, SQL) ->
 	case select_execute(PoolId, SQL) of
 		{ok, [Row]} ->
@@ -180,6 +246,16 @@ select_map_row(PoolId, SQL, Args) ->
 	select_map_row(PoolId, format(SQL, Args)).
 
 
+%% @spec update(PoolId, Table, DataList, Where, Args, Limit) -> {ok, AffectedRows} | {error, Error}
+%% PoolId = atom()
+%% Table = term()
+%% DataList = list()
+%% Where = string() | bitstring()
+%% Args = list()
+%% Limit = integer()
+%% AffectedRows = integer()
+%% Error = term()
+%% @doc 更新表数据
 update(PoolId, Table, DataList) ->
 	update(PoolId, Table, DataList, "", [], 0).
 update(PoolId, Table, DataList, Where) ->
@@ -194,6 +270,13 @@ update(PoolId, Table, DataList, Where, Args, Limit) ->
 	update_execute(PoolId, SQL).
 
 
+%% @spec insert_execute(PoolId, SQL) -> {ok, AffectedRows, LastInsertId} | {error, Error}
+%% PoolId = atom()
+%% SQL = string() | bitstring()
+%% AffectedRows = integer()
+%% LastInsertId = integer()
+%% Error = term()
+%% @doc 插入数据
 insert_execute(PoolId, SQL)->
 	case mysql:fetch(PoolId, SQL) of
 		{?ok, #mysql_result{affectedrows=AffectedRows,insertid=LastInsertId,error=""}} ->
@@ -204,6 +287,12 @@ insert_execute(PoolId, SQL)->
 			{?error, Error}
 	end.
 
+%% @spec update_execute(PoolId, SQL) -> {ok, AffectedRows} | {error, Error}
+%% PoolId = atom()
+%% SQL = string() | bitstring()
+%% AffectedRows = integer()
+%% Error = term()
+%% @doc 更新数据
 update_execute(PoolId, SQL) ->
 	case mysql:fetch(PoolId, SQL) of
 		{?ok, #mysql_result{affectedrows=AffectedRows,error=""}} ->
@@ -214,7 +303,12 @@ update_execute(PoolId, SQL) ->
 			{?error, Error}
 	end.
 
-%% mysql_api:select_execute(db_logic, "SELECT `uid` FROM gchy_user WHERE `uname` = '华华'").
+%% @spec select_execute(PoolId, SQL) -> {ok, Datas} | {error, Error}
+%% PoolId = atom()
+%% SQL = string() | bitstring()
+%% Datas = [list()|_]
+%% Error = term()
+%% @doc 查询数据
 select_execute(PoolId, SQL) ->
 	case mysql:fetch(PoolId, SQL) of
 		{?ok, #mysql_result{rows=Data,error=""}} ->
@@ -356,13 +450,13 @@ quote([C | Rest], Acc) ->
 	quote(Rest, [C | Acc]).
 
 
-%% @spec format_sql(Sql, Args) -> iolist()
-%% Sql = string() | iolist()
+%% @spec format_sql(Sql, Args) -> bitstring().
+%% Sql = string() | bitstring()
 %% Args = list()
 %% @doc 格式化SQL语句
-format(Sql, Args) when is_list(Sql) ->
-	S = re:replace(Sql, "\\?", "~s", [global, {return, list}]),
+format(Str, Args) when is_list(Str) ->
+	Format = re:replace(Str, "\\?", "~s", [global, {return, list}]),
 	L = [mysql:encode(A) || A <- Args],
-	list_to_bitstring(io_lib:format(S, L));
-format(Sql, Args) when is_bitstring(Sql) ->
-	format(bitstring_to_list(Sql), Args).
+	list_to_bitstring(io_lib:format(Format, L));
+format(Str, Args) when is_bitstring(Str) ->
+	format(bitstring_to_list(Str), Args).

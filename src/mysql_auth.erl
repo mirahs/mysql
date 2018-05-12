@@ -4,37 +4,37 @@
 -include("mysql.hrl").
 
 -export([
-		 auth/1
-		]).
+    auth/1
+]).
 
 
 auth(#mysql_side{socket=Socket,username=Username,password=Password} = MysqlSide) ->
     case mysql_mod:do_recv(Socket, <<>>, ?undefined) of
-		{ok, <<255:8, Rest/binary>>, _Data2, _InitSeqNum} ->
-		    {_Code, ErrData} = get_error_data(Rest, ?MYSQL_4_0),
-		    {error, ErrData};
-		{ok, Packet, Data2, InitSeqNum} ->
-		    {Version, Salt1, Salt2, Caps} = greeting(Packet),
-		    AuthRes =
-				case Caps band ?SECURE_CONNECTION of
-				    ?SECURE_CONNECTION ->
-						auth_new(Socket, Data2, InitSeqNum + 1,Username, Password, Salt1, Salt2);
-				    _ ->
-						auth_old(Socket, Data2, InitSeqNum + 1, Username, Password, Salt1)
-				end,
-		    case AuthRes of
-				{ok, <<0:8, _Rest/binary>>, _Data3, _RecvNum} ->
-				    {ok, MysqlSide#mysql_side{ver=Version}};
-				{ok, <<255:8, Rest/binary>>, _Data3, _RecvNum} ->
-				    {_Code, ErrData} = get_error_data(Rest, Version),
-				    {error, ErrData};
-				{ok, RecvPacket, _Data3, _RecvNum} ->
-				    {error, binary_to_list(RecvPacket)};
-				{error, Reason} ->
-				    {error, Reason}
-			    end;
-		{?error, Reason} ->
-		    {?error, Reason}
+        {ok, <<255:8, Rest/binary>>, _Data2, _InitSeqNum} ->
+            {_Code, ErrData} = get_error_data(Rest, ?MYSQL_4_0),
+            {error, ErrData};
+        {ok, Packet, Data2, InitSeqNum} ->
+            {Version, Salt1, Salt2, Caps} = greeting(Packet),
+            AuthRes =
+                case Caps band ?SECURE_CONNECTION of
+                    ?SECURE_CONNECTION ->
+                        auth_new(Socket, Data2, InitSeqNum + 1,Username, Password, Salt1, Salt2);
+                    _ ->
+                        auth_old(Socket, Data2, InitSeqNum + 1, Username, Password, Salt1)
+                end,
+            case AuthRes of
+                {ok, <<0:8, _Rest/binary>>, _Data3, _RecvNum} ->
+                    {ok, MysqlSide#mysql_side{ver=Version}};
+                {ok, <<255:8, Rest/binary>>, _Data3, _RecvNum} ->
+                    {_Code, ErrData} = get_error_data(Rest, Version),
+                    {error, ErrData};
+                {ok, RecvPacket, _Data3, _RecvNum} ->
+                    {error, binary_to_list(RecvPacket)};
+                {error, Reason} ->
+                    {error, Reason}
+            end;
+        {?error, Reason} ->
+            {?error, Reason}
     end.
 
 
@@ -49,17 +49,17 @@ auth_new(Socket, Data, SeqNum, Username, Password, Salt1, Salt2) ->
     Packet2 = make_new_auth(Username, Auth, none),
     mysql_mod:do_send(Socket, Packet2, SeqNum),
     case mysql_mod:do_recv(Socket, Data, SeqNum) of
-	{ok, Packet3, Data2, SeqNum2} ->
-	    case Packet3 of
-		<<254:8>> ->
-		    AuthOld = password_old(Password, Salt1),
-		    mysql_mod:do_send(Socket, <<AuthOld/binary, 0:8>>, SeqNum2 + 1),
-		    mysql_mod:do_recv(Socket, Data2, SeqNum2 + 1);
-		_ ->
-		    {ok, Packet3, Data2, SeqNum2}
-	    end;
-	{error, Reason} ->
-	    {error, Reason}
+        {ok, Packet3, Data2, SeqNum2} ->
+            case Packet3 of
+                <<254:8>> ->
+                    AuthOld = password_old(Password, Salt1),
+                    mysql_mod:do_send(Socket, <<AuthOld/binary, 0:8>>, SeqNum2 + 1),
+                    mysql_mod:do_recv(Socket, Data2, SeqNum2 + 1);
+                _ ->
+                    {ok, Packet3, Data2, SeqNum2}
+            end;
+        {error, Reason} ->
+            {error, Reason}
     end.
 
 
@@ -97,8 +97,8 @@ dualmap(F, [E1 | R1], [E2 | R2]) ->
 
 bxor_binary(B1, B2) ->
     list_to_binary(dualmap(fun (E1, E2) ->
-                   E1 bxor E2
-               end, binary_to_list(B1), binary_to_list(B2))).
+        E1 bxor E2
+                           end, binary_to_list(B1), binary_to_list(B2))).
 
 password_old(Password, Salt) ->
     {P1, P2} = hash(Password),
@@ -108,8 +108,8 @@ password_old(Password, Salt) ->
     List = rnd(9, Seed1, Seed2),
     {L, [Extra]} = lists:split(8, List),
     list_to_binary(lists:map(fun (E) ->
-				     E bxor (Extra - 64)
-			     end, L)).
+        E bxor (Extra - 64)
+                             end, L)).
 
 make_auth(User, Password) ->
     Caps = ?LONG_PASSWORD bor ?LONG_FLAG bor ?TRANSACTIONS,
@@ -117,7 +117,7 @@ make_auth(User, Password) ->
     UserB = list_to_binary(User),
     PasswordB = Password,
     <<Caps:16/little, Maxsize:24/little, UserB/binary, 0:8,
-    PasswordB/binary>>.
+        PasswordB/binary>>.
 
 password_new([], _Salt) ->
     <<>>;
@@ -139,11 +139,11 @@ password_new(Password, Salt) ->
 
 make_new_auth(User, Password, Database) ->
     DBCaps = case Database of
-		 none ->
-		     0;
-		 _ ->
-		     ?CONNECT_WITH_DB
-	     end,
+                 none ->
+                     0;
+                 _ ->
+                     ?CONNECT_WITH_DB
+             end,
     %Caps = ?MYSQL_CLIENT_MULTI_STATEMENTS bor ?MYSQL_CLIENT_MULTI_RESULTS bor DBCaps,
     Caps = ?LONG_PASSWORD bor ?LONG_FLAG bor ?TRANSACTIONS bor ?PROTOCOL_41 bor ?SECURE_CONNECTION bor
         ?MULTI_STATEMENTS bor ?MULTI_RESULTS bor DBCaps,
@@ -151,13 +151,13 @@ make_new_auth(User, Password, Database) ->
     UserB = list_to_binary(User),
     PasswordL = size(Password),
     DatabaseB = case Database of
-		    none ->
-			<<>>;
-		    _ ->
-			list_to_binary(Database)
-		end,
+                    none ->
+                        <<>>;
+                    _ ->
+                        list_to_binary(Database)
+                end,
     <<Caps:32/little, Maxsize:32/little, 8:8, 0:23/integer-unit:8,
-    UserB/binary, 0:8, PasswordL:8, Password/binary, DatabaseB/binary>>.
+        UserB/binary, 0:8, PasswordL:8, Password/binary, DatabaseB/binary>>.
 
 
 
@@ -179,8 +179,8 @@ asciz(Data) when is_binary(Data) ->
     asciz_binary(Data, []);
 asciz(Data) when is_list(Data) ->
     {String, [0 | Rest]} = lists:splitwith(fun (C) ->
-						   C /= 0
-					   end, Data),
+        C /= 0
+                                           end, Data),
     {String, Rest}.
 
 normalize_version([$4,$.,$0|_T]) ->
@@ -189,7 +189,7 @@ normalize_version([$4,$.,$1|_T]) ->
     ?MYSQL_4_1;
 normalize_version([$5|_T]) ->
     %% MySQL version 5.x protocol is compliant with MySQL 4.1.x:
-    ?MYSQL_4_1; 
+    ?MYSQL_4_1;
 normalize_version(_Other) ->
     %% Error, but trying the oldest protocol anyway:
     ?MYSQL_4_0.
