@@ -18,6 +18,7 @@ start_link() ->
 
 
 init([]) ->
+	%% 这两个进程要么保证都不会死掉，要么保证都死掉(之前的mysql链接进程都会清掉)
 	MysqlSideSup= ?CHILD(mysql_side_sup,supervisor),
 	MysqlSrv 	= ?CHILD(mysql_srv, 	worker),
-    {ok, {{one_for_one, 6, 60}, [MysqlSideSup, MysqlSrv]} }.
+    {ok, {{one_for_one, 1, 10}, [MysqlSideSup, MysqlSrv]} }.
