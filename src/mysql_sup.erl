@@ -20,4 +20,4 @@ start_link() ->
 init([]) ->
 	MysqlSideSup= ?CHILD(mysql_side_sup,supervisor),
 	MysqlSrv 	= ?CHILD(mysql_srv, 	worker),
-    {ok, {{one_for_one, 10, 60}, [MysqlSideSup, MysqlSrv]} }.
+    {ok, {{one_for_one, 6, 60}, [MysqlSideSup, MysqlSrv]} }.

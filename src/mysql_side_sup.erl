@@ -32,4 +32,4 @@ restart_child(SrvName)->
 
 
 init([]) ->
-	{ok, {{one_for_one, 10, 60}, []} }.
+	{ok, {{one_for_one, 1440, 86400}, []} }.
