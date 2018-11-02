@@ -25,7 +25,7 @@ start_child([ChildSpec | ChildSpecs]) ->
 		{ok, _Pid} -> ok;
 		{error, {already_started, _Pid}} -> ok;
 		{error, Error} ->
-			?ERROR("ChildSpec: ~w Error: ~w", [ChildSpec, Error])
+			?ERROR("ChildSpec: ~p Error: ~p", [ChildSpec, Error])
 	end,
 	start_child(ChildSpecs).
 
