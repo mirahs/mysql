@@ -11,7 +11,7 @@
 	,add_pool/2
 	,fetch/4
 
-	,callback_restart/2
+	,callback_start/2
 	,callback_result/2
 ]).
 
@@ -39,8 +39,8 @@ add_pool(PoolId, MysqlSide) ->
 fetch(PoolId, Pid, Ref, Query) ->
 	gen_server:cast(?MODULE, {fetch, PoolId, Pid, Ref, Query}).
 
-callback_restart(PoolId, SrvName) ->
-	gen_server:cast(?MODULE, {callback_restart, PoolId, SrvName}).
+callback_start(PoolId, SrvName) ->
+	gen_server:cast(?MODULE, {callback_start, PoolId, SrvName}).
 
 callback_result(PoolId, Ref) ->
 	gen_server:cast(?MODULE, {callback_result, PoolId, Ref}).
@@ -57,7 +57,7 @@ handle_call({add_pool, PoolId, #mysql_side{num = Num} = MysqlSide}, _From, State
 			Cores	= mysql_util:core_count(),
 			Num2	= ?IF(Num >= Cores, Num, Cores),
 			NumFinal= ?IF(Num2 >= ?MYSQL_CONNECT_NUM, Num2, ?MYSQL_CONNECT_NUM),
-			ChildSpecs	= child_specs(NumFinal, Cores, PoolId, MysqlSide, []),
+			ChildSpecs = child_specs(NumFinal, Cores, PoolId, MysqlSide, []),
 			mysql_side_sup:start_child(ChildSpecs),
 			MysqlPool = #mysql_pool{pool_id = PoolId},
 			pool_put(PoolId, MysqlPool),
@@ -65,7 +65,7 @@ handle_call({add_pool, PoolId, #mysql_side{num = Num} = MysqlSide}, _From, State
 			Pools	= pools_get(),
 			Pools2	= [PoolId | lists:delete(PoolId, Pools)],
 			pools_put(Pools2);
-		_ -> skip
+		_ -> ?ERROR("Already add_pool:~p,MysqlSide:~p", [PoolId, MysqlSide]), skip
 	end,
 	{reply, ok, State};
 
@@ -81,10 +81,10 @@ handle_cast({fetch, PoolId, Pid, Ref, Query}, State) ->
 	end,
 	{noreply, State};
 
-handle_cast({callback_restart, PoolId, SrvName}, State) ->
+handle_cast({callback_start, PoolId, SrvName}, State) ->
 	case pool_get(PoolId) of
 		#mysql_pool{pool_ready = PoolReady, pool_working = PoolWorking} = Pool ->
-			PoolReady2	= [SrvName | lists:delete(SrvName,PoolReady)],
+			PoolReady2	= [SrvName | lists:delete(SrvName, PoolReady)],
 			PoolWorking2= lists:keydelete(SrvName, 4, PoolWorking),
 			Pool2 		= Pool#mysql_pool{pool_ready = PoolReady2, pool_working = PoolWorking2},
 			pool_put(PoolId, Pool2);
@@ -98,7 +98,7 @@ handle_cast({callback_result, PoolId, Ref}, State) ->
 			Pool2 = callback_result_handle(Pool, Ref),
 			Pool3 = queue_handle(Pool2#mysql_pool.queue, Pool2#mysql_pool{queue = []}),
 			pool_put(PoolId, Pool3);
-		_ -> skip
+		_ -> ?ERROR("callback_result but PoolId(~p) not exist"), skip
 	end,
 	{noreply, State};
 
@@ -129,27 +129,25 @@ fetch_handle(Pool, FromPid, Ref, Query)->
 		[SideSrvName | Readys] ->
 			Time = mysql_util:seconds(),
 			mysql_side_srv:fetch_cast(SideSrvName, {FromPid, Ref}, Query),
-			Work = {Ref,FromPid,Time,SideSrvName},
+			Work = {Ref, FromPid, Time, SideSrvName},
 			Pool#mysql_pool{pool_ready = Readys, pool_working = [Work | Pool#mysql_pool.pool_working]}
 	end.
 
 %% 接收结果
 callback_result_handle(Pool, Ref)->
 	case lists:keytake(Ref, 1, Pool#mysql_pool.pool_working) of
-		{value, {Ref,_FromPid,_Time,SideSrvName}, Working} ->
+		{value, {Ref, _FromPid, _Time, SideSrvName}, Working} ->
 			Readys = Pool#mysql_pool.pool_ready,
 			Pool#mysql_pool{pool_ready = Readys ++ [SideSrvName], pool_working = Working};
 		false -> Pool
 	end.
 
-%% 接收结果 时看看队列是否有存货有就发出去
-queue_handle([], Pool)->
-	Pool;
+%% 接收结果时看看队列是否有存货有就发出去
+queue_handle([], Pool) -> Pool;
 queue_handle([{FromPid,Ref,Query} | Queue], Pool)->
 	case Pool#mysql_pool.pool_ready of
-		[] ->
-			Pool#mysql_pool{queue = Queue ++ [{FromPid,Ref,Query}]};
-		_  ->
+		[] -> Pool#mysql_pool{queue = Queue ++ [{FromPid, Ref, Query}]};
+		_ ->
 			Pool2 = fetch_handle(Pool, FromPid, Ref, Query),
 			queue_handle(Queue, Pool2)
 	end.
@@ -170,8 +168,8 @@ child_specs(0, _Cores, _PoolId, _MysqlSide, ChildSpecs) ->
 	ChildSpecs;
 child_specs(N, Cores, PoolId, MysqlSide, ChildSpecs) ->
 	SrvName		= mysql_util:to_atom(lists:concat([mysql_side_srv_, PoolId, "_" , N])),
-	ChildSpec 	= {SrvName, {mysql_side_srv, start_link, [N,Cores,SrvName,MysqlSide#mysql_side{pool_id=PoolId,srv_name=SrvName}]}, permanent, brutal_kill, worker, [mysql_side_srv]},
-	child_specs(N - 1, Cores, PoolId, MysqlSide, [ChildSpec|ChildSpecs]).
+	ChildSpec 	= {SrvName, {mysql_side_srv, start_link, [N, Cores, SrvName, MysqlSide#mysql_side{pool_id = PoolId, srv_name = SrvName}]}, permanent, brutal_kill, worker, [mysql_side_srv]},
+	child_specs(N - 1, Cores, PoolId, MysqlSide, [ChildSpec | ChildSpecs]).
 
 
 pools_get() ->

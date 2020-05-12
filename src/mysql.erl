@@ -87,7 +87,7 @@ add_pool(PoolId, Host, Port, Username, Password, Database, Charset) ->
 	add_pool(PoolId, Host, Port, Username, Password, Database, Charset, ?MYSQL_CONNECT_NUM).
 
 add_pool(PoolId, Host, Port, Username, Password, Database, Charset, Num) ->
-	MysqlSide = #mysql_side{host=Host,port=Port,username=Username,password=Password,database=Database,charset=Charset,num=Num},
+	MysqlSide = #mysql_side{host = Host, port = Port, username = Username, password = Password, database = Database, charset = Charset, num = Num},
 	mysql_srv:add_pool(PoolId, MysqlSide).
 
 

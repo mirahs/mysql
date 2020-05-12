@@ -3,13 +3,13 @@
 -behaviour(application).
 
 -export([
-	start/2
-	,stop/1
+    start/2
+    ,stop/1
 ]).
 
 
 start(_StartType, _StartArgs) ->
-	mysql_sup:start_link().
+    mysql_sup:start_link().
 
 stop(_State) ->
-	ok.
+    ok.

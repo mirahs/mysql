@@ -35,7 +35,6 @@ heart_cast(SrvName) ->
 
 init([#mysql_side{host = Host, port = Port, pool_id = PoolId, srv_name = SrvName} = MysqlSide]) ->
 	erlang:process_flag(trap_exit, true),
-
 	case gen_tcp:connect(Host, Port, [binary, {packet, 0}]) of
 		{ok, Socket} ->
 			case mysql_auth:auth(MysqlSide#mysql_side{socket = Socket}) of
@@ -46,14 +45,14 @@ init([#mysql_side{host = Host, port = Port, pool_id = PoolId, srv_name = SrvName
 						{noreply, MysqlSide3} ->
 							case MysqlSide#mysql_side.charset of
 								undefined ->
-									mysql_srv:callback_restart(PoolId, SrvName),
+									mysql_srv:callback_start(PoolId, SrvName),
 									{noreply, MysqlSide3};
 								Charset ->
 									EncodingBinary = mysql_util:to_binary(Charset),
 									QueryEncoding  = <<"SET NAMES '", EncodingBinary/binary, "'">>,
 									case handle_cast({fetch, null, QueryEncoding}, MysqlSide3) of
 										{noreply, MysqlSide4} ->
-											mysql_srv:callback_restart(PoolId, SrvName),
+											mysql_srv:callback_start(PoolId, SrvName),
 											{ok, MysqlSide4};
 										{stop, Reason, _State} ->
 											{stop, {error, Reason}}
@@ -75,20 +74,19 @@ handle_cast({fetch, From, Query}, State) ->
 		{ok, Result, Bin2} ->
 			case From of
 				null -> skip;
-				{null, Ref} ->
-					mysql_srv:callback_result(State#mysql_side.pool_id, Ref);
+				{null, Ref} -> mysql_srv:callback_result(State#mysql_side.pool_id, Ref);
 				{Pid, Ref} ->
 					Pid ! {ok, Ref, Result},
 					mysql_srv:callback_result(State#mysql_side.pool_id, Ref)
 			end,
 			{noreply, State#mysql_side{bin = Bin2}};
 		{error, Reason} ->
-			?ERROR("Fetch Query: ~p, Reason: ~p", [Query, Reason]),
+			?ERROR("Fetch Query:~p,Reason:~p", [Query, Reason]),
 			{stop, Reason, State}
 	end;
 
 handle_cast(heart, State) ->
-	Db 		= mysql_util:to_binary(State#mysql_side.database),
+	Db		= mysql_util:to_binary(State#mysql_side.database),
 	Query	= <<"USE ", Db/binary>>,
 	handle_cast({fetch, null, Query}, State).
 

@@ -38,7 +38,7 @@
 }).
 
 -record(mysql_side, {
-	pool_id= 0,
+	pool_id = 0,
 	ver	= null,
 	socket = null,
 	bin	= <<>>,
