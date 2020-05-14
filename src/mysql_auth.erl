@@ -17,24 +17,18 @@ auth(#mysql_side{socket=Socket,username=Username,password=Password} = MysqlSide)
             {Version, Salt1, Salt2, Caps} = greeting(Packet),
             AuthRes =
                 case Caps band ?SECURE_CONNECTION of
-                    ?SECURE_CONNECTION ->
-                        auth_new(Socket, Data2, InitSeqNum + 1,Username, Password, Salt1, Salt2);
-                    _ ->
-                        auth_old(Socket, Data2, InitSeqNum + 1, Username, Password, Salt1)
+                    ?SECURE_CONNECTION -> auth_new(Socket, Data2, InitSeqNum + 1,Username, Password, Salt1, Salt2);
+                    _ -> auth_old(Socket, Data2, InitSeqNum + 1, Username, Password, Salt1)
                 end,
             case AuthRes of
-                {ok, <<0:8, _Rest/binary>>, _Data3, _RecvNum} ->
-                    {ok, MysqlSide#mysql_side{ver=Version}};
+                {ok, <<0:8, _Rest/binary>>, _Data3, _RecvNum} -> {ok, MysqlSide#mysql_side{ver = Version}};
                 {ok, <<255:8, Rest/binary>>, _Data3, _RecvNum} ->
                     {_Code, ErrData} = get_error_data(Rest, Version),
                     {error, ErrData};
-                {ok, RecvPacket, _Data3, _RecvNum} ->
-                    {error, binary_to_list(RecvPacket)};
-                {error, Reason} ->
-                    {error, Reason}
+                {ok, RecvPacket, _Data3, _RecvNum} -> {error, binary_to_list(RecvPacket)};
+                {error, Reason} -> {error, Reason}
             end;
-        {?error, Reason} ->
-            {?error, Reason}
+        {?error, Reason} -> {?error, Reason}
     end.
 
 
@@ -55,11 +49,9 @@ auth_new(Socket, Data, SeqNum, Username, Password, Salt1, Salt2) ->
                     AuthOld = password_old(Password, Salt1),
                     mysql_mod:do_send(Socket, <<AuthOld/binary, 0:8>>, SeqNum2 + 1),
                     mysql_mod:do_recv(Socket, Data2, SeqNum2 + 1);
-                _ ->
-                    {ok, Packet3, Data2, SeqNum2}
+                _ -> {ok, Packet3, Data2, SeqNum2}
             end;
-        {error, Reason} ->
-            {error, Reason}
+        {error, Reason} -> {error, Reason}
     end.
 
 
@@ -164,8 +156,7 @@ make_new_auth(User, Password, Database) ->
 
 
 %% part of mysql_init/4
-greeting(Packet) ->
-    <<_Protocol:8, Rest/binary>> = Packet,
+greeting(<<_Protocol:8, Rest/binary>>) ->
     {Version, Rest2} = asciz(Rest),
     <<_TreadID:32/little, Rest3/binary>> = Rest2,
     {Salt, Rest4} = asciz(Rest3),
@@ -178,15 +169,11 @@ greeting(Packet) ->
 asciz(Data) when is_binary(Data) ->
     asciz_binary(Data, []);
 asciz(Data) when is_list(Data) ->
-    {String, [0 | Rest]} = lists:splitwith(fun (C) ->
-        C /= 0
-                                           end, Data),
+    {String, [0 | Rest]} = lists:splitwith(fun (C) -> C /= 0 end, Data),
     {String, Rest}.
 
-normalize_version([$4,$.,$0|_T]) ->
-    ?MYSQL_4_0;
-normalize_version([$4,$.,$1|_T]) ->
-    ?MYSQL_4_1;
+normalize_version([$4,$.,$0|_T]) -> ?MYSQL_4_0;
+normalize_version([$4,$.,$1|_T]) -> ?MYSQL_4_1;
 normalize_version([$5|_T]) ->
     %% MySQL version 5.x protocol is compliant with MySQL 4.1.x:
     ?MYSQL_4_1;

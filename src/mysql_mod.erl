@@ -16,17 +16,17 @@ do_recv(_Socket, <<Length:24/little, Num:8, Packet:Length/binary, Rest/binary>>,
 do_recv(Socket, Data, SeqNum) ->
 	receive
 		{tcp, Socket, InData} ->
-			do_recv(Socket,<<Data/binary,InData/binary>>,SeqNum);
+			do_recv(Socket, <<Data/binary, InData/binary>>, SeqNum);
 		{tcp_error, Socket, Reason} ->
-			?ERROR("mysql_recv: Socket ~p closed: ~p", [Socket,Reason]),
+			?ERROR("tcp_error Socket:~p closed Reason:~p", [Socket, Reason]),
 			gen_tcp:close(Socket),
 			{?error, tcp_error};
 		{tcp_closed, Socket} ->
-			?ERROR("mysql_recv: Socket ~p closed", [Socket]),
+			?ERROR("tcp_closed Socket:~p closed", [Socket]),
 			gen_tcp:close(Socket),
 			{?error, tcp_closed};
 		close ->
-			?ERROR("smysql_recv: socket closed", []),
+			?ERROR("smysql_recv: socket closed"),
 			gen_tcp:close(Socket),
 			{?error, closed}
 	end.
@@ -40,16 +40,14 @@ do_query(Socket, Bin, Version, Query) ->
 	Query2 = iolist_to_binary(Query),
 	Packet = <<?MYSQL_QUERY_OP, Query2/binary>>,
 	case do_send(Socket, Packet, 0) of
-		ok ->
-			get_query_response(Socket, Bin, Version);
+		ok -> get_query_response(Socket, Bin, Version);
 		{error, Reason} ->
 			Msg = io_lib:format("Failed sending data on socket : ~p", [Reason]),
 			{error, Msg}
 	end.
 
 
-seq_num(?undefined, Num) ->
-	Num;
+seq_num(?undefined, Num) -> Num;
 seq_num(SeqNum, Num) ->
 	Num = SeqNum + 1, % 这里一定要匹配
 	Num.
