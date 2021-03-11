@@ -1,6 +1,5 @@
 -module(mysql_auth).
 
--include("common.hrl").
 -include("mysql.hrl").
 
 -export([
@@ -9,7 +8,7 @@
 
 
 auth(#mysql_side{socket=Socket,username=Username,password=Password} = MysqlSide) ->
-    case mysql_mod:do_recv(Socket, <<>>, ?undefined) of
+    case mysql_mod:do_recv(Socket, <<>>, undefined) of
         {ok, <<255:8, Rest/binary>>, _Data2, _InitSeqNum} ->
             {_Code, ErrData} = get_error_data(Rest, ?MYSQL_4_0),
             {error, ErrData};
@@ -28,7 +27,7 @@ auth(#mysql_side{socket=Socket,username=Username,password=Password} = MysqlSide)
                 {ok, RecvPacket, _Data3, _RecvNum} -> {error, binary_to_list(RecvPacket)};
                 {error, Reason} -> {error, Reason}
             end;
-        {?error, Reason} -> {?error, Reason}
+        {error, Reason} -> {error, Reason}
     end.
 
 

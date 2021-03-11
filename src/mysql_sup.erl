@@ -3,21 +3,27 @@
 -behaviour(supervisor).
 
 -export([
-	start_link/0
+    start_link/0
 ]).
 
 -export([
-	init/1
+    init/1
 ]).
 
--define(CHILD(I, Type), {I, {I, start_link, []}, permanent, 5000, Type, [I]}).
 
+%%%===================================================================
+%%% API
+%%%===================================================================
 
 start_link() ->
     supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
 
+%%%===================================================================
+%%% supervisor callback functions
+%%%===================================================================
+
 init([]) ->
-	MysqlSideSup= ?CHILD(mysql_side_sup, supervisor),
-	MysqlSrv 	= ?CHILD(mysql_srv, 	worker),
-    {ok, {{one_for_all , 1, 10}, [MysqlSideSup, MysqlSrv]} }.
+    MysqlSideSup= {mysql_side_sup,{mysql_side_sup, start_link, []},permanent, 5000, supervisor,	[mysql_side_sup]},
+    MysqlSrv	= {mysql_srv, 		{mysql_srv, start_link, []}, 		permanent, 5000, worker,		[mysql_srv]},
+    {ok, {{one_for_one , 10, 10}, [MysqlSideSup, MysqlSrv]} }.

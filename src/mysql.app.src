@@ -1,8 +1,7 @@
-{application, mysql,
-    [
-        {description, "Erlang MySQL Driver"},
-        {vsn, "1.0.0"},
-        {registered, [mysql_sup, mysql_side_sup, mysql_srv]},
-        {applications, [kernel, stdlib]},
-        {mod, {mysql_app, []}}
-    ]}.
+{application, mysql, [
+    {description, "Erlang MySQL Driver"},
+    {vsn, "1.0.0"},
+    {registered, [mysql_sup, mysql_side_sup, mysql_srv]},
+    {applications, [kernel, stdlib]},
+    {mod, {mysql_app, []}}
+]}.

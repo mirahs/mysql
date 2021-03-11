@@ -1,7 +1,5 @@
 -module(mysql_util).
 
--include("common.hrl").
-
 -export([
     to_atom/1,
     to_binary/1,

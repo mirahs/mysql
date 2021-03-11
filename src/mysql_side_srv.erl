@@ -2,7 +2,6 @@
 
 -behaviour(gen_server).
 
--include("common.hrl").
 -include("mysql.hrl").
 
 -export([
@@ -81,7 +80,7 @@ handle_cast({fetch, From, Query}, State) ->
 			end,
 			{noreply, State#mysql_side{bin = Bin2}};
 		{error, Reason} ->
-			?ERROR("Fetch Query:~p,Reason:~p", [Query, Reason]),
+			?ERR("Fetch Query:~p,Reason:~p", [Query, Reason]),
 			{stop, Reason, State}
 	end;
 

@@ -1,6 +1,5 @@
 -module(mysql_mod).
 
--include("common.hrl").
 -include("mysql.hrl").
 
 -export([
@@ -12,23 +11,23 @@
 
 do_recv(_Socket, <<Length:24/little, Num:8, Packet:Length/binary, Rest/binary>>, SeqNum) ->
 	SeqNumNew = seq_num(SeqNum, Num),
-	{?ok, Packet, Rest, SeqNumNew};
+	{ok, Packet, Rest, SeqNumNew};
 do_recv(Socket, Data, SeqNum) ->
 	receive
 		{tcp, Socket, InData} ->
 			do_recv(Socket, <<Data/binary, InData/binary>>, SeqNum);
 		{tcp_error, Socket, Reason} ->
-			?ERROR("tcp_error Socket:~p closed Reason:~p", [Socket, Reason]),
+			?ERR("tcp_error Socket:~p closed Reason:~p", [Socket, Reason]),
 			gen_tcp:close(Socket),
-			{?error, tcp_error};
+			{error, tcp_error};
 		{tcp_closed, Socket} ->
-			?ERROR("tcp_closed Socket:~p closed", [Socket]),
+			?ERR("tcp_closed Socket:~p closed", [Socket]),
 			gen_tcp:close(Socket),
-			{?error, tcp_closed};
+			{error, tcp_closed};
 		close ->
-			?ERROR("smysql_recv: socket closed"),
+			?ERR("smysql_recv: socket closed"),
 			gen_tcp:close(Socket),
-			{?error, closed}
+			{error, closed}
 	end.
 
 do_send(Socket, Packet, Num) ->
@@ -47,14 +46,14 @@ do_query(Socket, Bin, Version, Query) ->
 	end.
 
 
-seq_num(?undefined, Num) -> Num;
+seq_num(undefined, Num) -> Num;
 seq_num(SeqNum, Num) ->
 	Num = SeqNum + 1, % 这里一定要匹配
 	Num.
 
 get_query_response(Socket, Bin, Version) ->
 	%?MSG_ECHO("get_query_response Bin: ~p~n", [Bin]),
-	case do_recv(Socket, Bin, ?undefined) of
+	case do_recv(Socket, Bin, undefined) of
 		{ok, Packet, Bin2, _} ->
 			{Fieldcount, Rest} = get_lcb(Packet),
 			case Fieldcount of
@@ -62,16 +61,16 @@ get_query_response(Socket, Bin, Version) ->
 					%% No Tabular data
 					{AffectedRows, Rest2} = get_lcb(Rest),
 					{InsertId, _} = get_lcb(Rest2),
-					{?ok, #mysql_result{affectedrows=AffectedRows, insertid=InsertId}, Bin2};
+					{ok, #mysql_result{affectedrows=AffectedRows, insertid=InsertId}, Bin2};
 				255 ->
 					%?MSG_ECHO("has a error!"),
 					case get_error_data(Rest, Version) of
 						{Code, {SqlState, Message}} ->
 							% MYSQL_4_1 error data
-							{?ok, #mysql_result{error=Message, errcode=Code, errsqlstate=SqlState}, Bin2};
+							{ok, #mysql_result{error=Message, errcode=Code, errsqlstate=SqlState}, Bin2};
 						{Code, Message} ->
 							% MYSQL_4_0 error data
-							{?ok, #mysql_result{error=Message, errcode=Code}, Bin2}
+							{ok, #mysql_result{error=Message, errcode=Code}, Bin2}
 					end;
 				_ ->
 					%% Tabular data received
@@ -82,10 +81,10 @@ get_query_response(Socket, Bin, Version) ->
 									{ok, #mysql_result{fieldinfo=Fields, rows=Rows}, Bin4};
 								{error, {Code, {SqlState, Message}}, Bin4} ->
 									% MYSQL_4_1 error data
-									{?ok, #mysql_result{error=Message, errcode=Code, errsqlstate=SqlState}, Bin4};
+									{ok, #mysql_result{error=Message, errcode=Code, errsqlstate=SqlState}, Bin4};
 								{error, {Code, Message}, Bin4} ->
 									% MYSQL_4_0 error data
-									{?ok, #mysql_result{error=Message, errcode=Code}, Bin4};
+									{ok, #mysql_result{error=Message, errcode=Code}, Bin4};
 								{error, Reason} ->
 									{error, Reason}
 							end;
@@ -183,8 +182,8 @@ get_row([], _Data, Res) ->
 get_row([Field | OtherFields], Data, Res) ->
 	{Col, Rest} = get_with_length(Data),
 	This = case Col of
-			   ?null ->
-				   ?undefined;
+			   null ->
+				   undefined;
 			   _ ->
 				   convert_type(Col, element(4, Field))
 		   end,
