@@ -4,6 +4,8 @@
     start/0
     ,stop/0
 
+    ,start_logger/1
+
     ,add_pool/4
     ,add_pool/5
     ,add_pool/6
@@ -63,6 +65,18 @@ start() ->
 stop() ->
     application:stop(mysql),
     ok.
+
+
+%% 启动日志进程
+-spec start_logger(DirVar :: string()) -> any().
+-ifdef(detached).
+start_logger(DirVar) ->
+    Logger = {mysql_logger_file, {mysql_logger_file, start_link, [DirVar]}, permanent, 5000, worker, [mysql_logger_file]},
+    mysql_sup:start_logger(Logger).
+-else.
+start_logger(_DirVar) ->
+    ok.
+-endif.
 
 
 %% 添加数据库链接池
